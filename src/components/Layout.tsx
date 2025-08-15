@@ -7,12 +7,10 @@ import {
   AlertTriangle,
   Heart,
   Users,
-  Home,
-  Settings,
   Menu,
   X,
   Phone,
-  MessageSquare,
+  User,
 } from "lucide-react";
 
 interface LayoutProps {
@@ -27,9 +25,7 @@ const navigationItems = [
   { id: "alerts", label: "Alerts", icon: AlertTriangle },
   { id: "wellness", label: "Wellness", icon: Heart },
   { id: "contacts", label: "Contacts", icon: Users },
-  { id: "automation", label: "Home Control", icon: Home },
-  { id: "communication", label: "Communication", icon: MessageSquare },
-  { id: "settings", label: "Settings", icon: Settings },
+  { id: "profile", label: "User Profile", icon: User },
 ];
 
 export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {

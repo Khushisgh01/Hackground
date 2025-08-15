@@ -5,7 +5,7 @@ import { LiveMonitor } from "@/components/LiveMonitor";
 import { AlertSystem } from "@/components/AlertSystem";
 import { WellnessTracking } from "@/components/WellnessTracking";
 import { ContactManagement } from "@/components/ContactManagement";
-import { HomeAutomation } from "@/components/HomeAutomation";
+import { UserProfile } from "@/components/UserProfile";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -22,18 +22,8 @@ const Index = () => {
         return <WellnessTracking />;
       case "contacts":
         return <ContactManagement />;
-      case "automation":
-        return <HomeAutomation />;
-      case "communication":
-        return <div className="text-center py-16">
-          <h2 className="text-2xl font-bold mb-4">Communication Center</h2>
-          <p className="text-muted-foreground">Two-way communication features coming soon!</p>
-        </div>;
-      case "settings":
-        return <div className="text-center py-16">
-          <h2 className="text-2xl font-bold mb-4">Settings</h2>
-          <p className="text-muted-foreground">System configuration and preferences.</p>
-        </div>;
+      case "profile":
+        return <UserProfile />;
       default:
         return <Dashboard onTabChange={setActiveTab} />;
     }

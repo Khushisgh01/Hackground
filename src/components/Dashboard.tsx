@@ -225,32 +225,6 @@ export const Dashboard = ({ onTabChange }: DashboardProps) => {
         </Card>
       </div>
 
-      {/* Recent Events Summary */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-primary" />
-            Today's Summary
-          </CardTitle>
-          <CardDescription>Overview of activities and wellness metrics</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-success">8.5</div>
-              <p className="text-sm text-muted-foreground">Hours of Activity</p>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-primary">0</div>
-              <p className="text-sm text-muted-foreground">High Priority Alerts</p>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-warning">2</div>
-              <p className="text-sm text-muted-foreground">Wellness Reminders</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
