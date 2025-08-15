@@ -27,15 +27,12 @@ import { toast } from "sonner";
 
 const wellnessMetrics = [
   { name: "Sleep Quality", value: 85, trend: "+5%", icon: Moon, color: "text-primary" },
-  { name: "Activity Level", value: 72, trend: "-2%", icon: Activity, color: "text-success" },
   { name: "Medication Adherence", value: 95, trend: "+1%", icon: Pill, color: "text-warning" },
-  { name: "Hydration", value: 68, trend: "+8%", icon: Droplets, color: "text-primary" },
 ];
 
 const todaySchedule = [
   { time: "08:00", task: "Morning Medication", status: "completed", type: "medication" },
   { time: "09:00", task: "Breakfast", status: "completed", type: "meal" },
-  { time: "12:00", task: "Hydration Check", status: "pending", type: "hydration" },
   { time: "13:00", task: "Lunch", status: "pending", type: "meal" },
   { time: "15:00", task: "Afternoon Walk", status: "pending", type: "exercise" },
   { time: "18:00", task: "Evening Medication", status: "pending", type: "medication" },
@@ -65,8 +62,6 @@ export const WellnessTracking = () => {
         return <Pill className="w-4 h-4" />;
       case "meal":
         return <Utensils className="w-4 h-4" />;
-      case "hydration":
-        return <Droplets className="w-4 h-4" />;
       case "exercise":
         return <Activity className="w-4 h-4" />;
       default:
@@ -149,27 +144,13 @@ export const WellnessTracking = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center p-4 bg-accent rounded-lg">
-                    <div className="text-2xl font-bold text-success">4/6</div>
+                    <div className="text-2xl font-bold text-success">3/5</div>
                     <p className="text-sm text-muted-foreground">Tasks Complete</p>
                   </div>
                   <div className="text-center p-4 bg-accent rounded-lg">
                     <div className="text-2xl font-bold text-primary">8.5</div>
                     <p className="text-sm text-muted-foreground">Hours Sleep</p>
                   </div>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Water Intake</span>
-                    <span className="text-sm font-medium">6/8 glasses</span>
-                  </div>
-                  <Progress value={75} className="h-2" />
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Activity Goal</span>
-                    <span className="text-sm font-medium">3,200/5,000 steps</span>
-                  </div>
-                  <Progress value={64} className="h-2" />
                 </div>
               </CardContent>
             </Card>
@@ -362,12 +343,12 @@ export const WellnessTracking = () => {
 
                 <div className="p-4 bg-warning/10 rounded-lg border border-warning/20">
                   <div className="flex items-center gap-2 mb-2">
-                    <Droplets className="w-4 h-4 text-warning" />
-                    <span className="font-medium text-warning">Hydration Alert</span>
+                    <Pill className="w-4 h-4 text-warning" />
+                    <span className="font-medium text-warning">Medication Reminder</span>
                   </div>
                   <p className="text-sm">
-                    You've been drinking less water than usual. Try setting hourly reminders 
-                    to reach your daily hydration goal.
+                    Don't forget your evening medication at 6 PM. Consider setting up automatic 
+                    reminders for better adherence.
                   </p>
                 </div>
 
