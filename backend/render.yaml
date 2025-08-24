@@ -4,8 +4,8 @@ services:
     env: node
     runtime: node
     nodeVersion: 18.18.0
-    buildCommand: npm ci --only=production
-    startCommand: node server.js
+    buildCommand: npm ci --only=production && npm run build
+    startCommand: npm run render-start
     envVars:
       - key: NODE_ENV
         value: production

@@ -10,7 +10,8 @@
     "test": "echo 'No tests specified' && exit 1",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "render-postbuild": "npm ci --only=production"
+    "render-postbuild": "npm ci --only=production",
+    "render-start": "node server.js"
   },
   "keywords": [
     "family-safety",
