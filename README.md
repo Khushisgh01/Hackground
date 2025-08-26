@@ -1,73 +1,41 @@
-# Welcome to your Lovable project
+SafeGuard AI
+AI-powered Home Safety & Wellness Monitoring Platform
 
-## Project info
+Overview
+SafeGuard AI is a comprehensive, privacy-first platform designed to help families remotely monitor and care for vulnerable loved ones—elderly relatives, children, and even pets. By leveraging on-device AI for real-time activity recognition, instant alerts, and holistic wellness tracking, SafeGuard AI transforms ordinary homes into proactive, intelligent safety nets.
 
-**URL**: https://lovable.dev/projects/fa4654af-db8b-4303-945e-3581390e3790
+Because safety shouldn’t wait for an emergency.
 
-## How can I edit this code?
+Features
+Smart Dashboard:
+One-stop hub for status, monitors, alerts, and well-being scores.
 
-There are several ways of editing your application.
+ Live Monitoring:
+AI-powered video analysis distinguishes between safe (sleep, walk) and risky (falls, prolonged inactivity) activities—no footage leaves your device.
 
-**Use Lovable**
+Instant Alerts & Escalation:
+Notifies designated contacts instantly upon emergencies; escalates to neighbors or emergency services if no response.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/fa4654af-db8b-4303-945e-3581390e3790) and start prompting.
+Wellness Management:
+Tracks sleep, medication, routines, mood; provides personalized reminders and AI-driven health insights.
 
-Changes made via Lovable will be committed automatically to this repo.
+Secure Contact Management:
+Organize contacts (family, caregivers, neighbors), set personalized alert rules, and manage account preferences.
 
-**Use your preferred IDE**
+On-device Privacy:
+All video and activity data is analyzed locally, ensuring user privacy and compliance.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Demo link:
+https://familysafe-ai.vercel.app/
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Future Scope
+Native mobile app & smart speaker integrations.
 
-Follow these steps:
+Integration with more smart home/IoT health devices.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Predictive risk analytics for preventive care.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Multilingual accessibility and senior-friendly design.
 
-# Step 3: Install the necessary dependencies.
-npm i
+Community support and caregiver collaboration features.
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/fa4654af-db8b-4303-945e-3581390e3790) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
