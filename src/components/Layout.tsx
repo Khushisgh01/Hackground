@@ -11,10 +11,7 @@ import {
   X,
   Phone,
   User,
-  LogOut,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -33,24 +30,6 @@ const navigationItems = [
 
 export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { signOut, user } = useAuth();
-  const { toast } = useToast();
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      toast({
-        title: "Signed out",
-        description: "You've been successfully signed out.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to sign out. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -112,20 +91,8 @@ export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
             })}
           </nav>
 
-          {/* User Info & Logout */}
-          <div className="p-4 border-t border-sidebar-border space-y-3">
-            <div className="text-sm text-sidebar-foreground/60">
-              Welcome, {user?.user_metadata?.first_name || user?.email}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSignOut}
-              className="w-full gap-2 justify-start"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </Button>
+          {/* Emergency Contact */}
+          <div className="p-4 border-t border-sidebar-border">
             <Button variant="destructive" className="w-full gap-2">
               <Phone className="w-4 h-4" />
               Emergency Call
