@@ -5,6 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Heart,
   Activity,
@@ -30,7 +34,7 @@ const wellnessMetrics = [
   { name: "Medication Adherence", value: 95, trend: "+1%", icon: Pill, color: "text-warning" },
 ];
 
-const todaySchedule = [
+const initialSchedule = [
   { time: "08:00", task: "Morning Medication", status: "completed", type: "medication" },
   { time: "09:00", task: "Breakfast", status: "completed", type: "meal" },
   { time: "13:00", task: "Lunch", status: "pending", type: "meal" },
@@ -41,6 +45,13 @@ const todaySchedule = [
 export const WellnessTracking = () => {
   const [moodEntry, setMoodEntry] = useState("");
   const [selectedMood, setSelectedMood] = useState<"happy" | "neutral" | "sad" | null>(null);
+  const [todaySchedule, setTodaySchedule] = useState(initialSchedule);
+
+
+  // State for the Set Reminder dialog
+  const [reminderTitle, setReminderTitle] = useState("");
+  const [reminderType, setReminderType] = useState("");
+  const [reminderTime, setReminderTime] = useState("");
 
   const handleMoodSubmit = () => {
     if (selectedMood) {
@@ -52,8 +63,28 @@ export const WellnessTracking = () => {
     }
   };
 
+  const handleSetReminder = () => {
+    if (!reminderTitle || !reminderType || !reminderTime) {
+        toast.error("Please fill out all reminder fields.");
+        return;
+    }
+    toast.success("Reminder Set!", {
+        description: `You will be reminded to "${reminderTitle}" at ${reminderTime}.`,
+    });
+    // Reset form
+    setReminderTitle("");
+    setReminderType("");
+    setReminderTime("");
+  };
+
   const handleTaskComplete = (taskIndex: number) => {
-    toast.success("Task marked as completed!");
+    const newSchedule = [...todaySchedule];
+    const task = newSchedule[taskIndex];
+    if (task) {
+      task.status = "completed";
+      setTodaySchedule(newSchedule);
+      toast.success(`Task "${task.task}" marked as completed!`);
+    }
   };
 
   const getTaskIcon = (type: string) => {
@@ -80,14 +111,91 @@ export const WellnessTracking = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="hero" className="gap-2">
-            <Bell className="w-4 h-4" />
-            Set Reminder
-          </Button>
-          <Button variant="outline" className="gap-2">
-            <BarChart3 className="w-4 h-4" />
-            View Reports
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="hero" className="gap-2">
+                <Bell className="w-4 h-4" />
+                Set Reminder
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Set a New Wellness Reminder</DialogTitle>
+                <DialogDescription>
+                  Create a reminder for medication, appointments, or other activities.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="title" className="text-right">Title</Label>
+                  <Input id="title" value={reminderTitle} onChange={(e) => setReminderTitle(e.target.value)} className="col-span-3" placeholder="e.g., Take morning pills" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="type" className="text-right">Type</Label>
+                  <Select onValueChange={setReminderType}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select a reminder type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="medication">Medication</SelectItem>
+                      <SelectItem value="appointment">Appointment</SelectItem>
+                      <SelectItem value="exercise">Exercise</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="time" className="text-right">Time</Label>
+                  <Input id="time" type="time" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} className="col-span-3" />
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" onClick={handleSetReminder}>Save Reminder</Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <BarChart3 className="w-4 h-4" />
+                View Reports
+              </Button>
+            </DialogTrigger>
+             <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Weekly Wellness Report</DialogTitle>
+                  <DialogDescription>
+                    A summary of wellness metrics from the last 7 days.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="flex items-center justify-between">
+                        <p className="font-medium">Overall Wellness Score</p>
+                        <p className="font-bold text-lg text-success">92%</p>
+                    </div>
+                     <div className="flex items-center justify-between">
+                        <p className="font-medium">Sleep Consistency</p>
+                        <p className="font-bold text-lg text-primary">89%</p>
+                    </div>
+                     <div className="flex items-center justify-between">
+                        <p className="font-medium">Medication Adherence</p>
+                        <p className="font-bold text-lg text-success">95%</p>
+                    </div>
+                     <div className="flex items-center justify-between">
+                        <p className="font-medium">Average Daily Steps</p>
+                        <p className="font-bold text-lg text-primary">5,430</p>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button">Close</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

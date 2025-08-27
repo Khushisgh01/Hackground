@@ -23,7 +23,6 @@ import { toast } from "sonner";
 
 export const LiveMonitor = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedCamera, setSelectedCamera] = useState("living-room");
   const [audioEnabled, setAudioEnabled] = useState(true);
@@ -100,8 +99,8 @@ export const LiveMonitor = () => {
               <SelectItem value="front-door">Front Door Camera</SelectItem>
             </SelectContent>
           </Select>
-          <Badge variant={isStreaming ? "default" : "secondary"}>
-            {isStreaming ? "LIVE" : "OFFLINE"}
+          <Badge variant={isStreaming ? "success" : "secondary"}>
+            {isStreaming ? "ONLINE" : "OFFLINE"}
           </Badge>
         </div>
       </div>
@@ -217,36 +216,7 @@ export const LiveMonitor = () => {
       </Card>
 
       {/* Live Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="shadow-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Shield className="w-4 h-4 text-success" />
-              AI Detection Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Safe Activities</span>
-                <Badge variant="outline" className="text-success border-success">
-                  2 Active
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Alerts</span>
-                <Badge variant="outline" className="text-muted-foreground">
-                  0 Active
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Confidence</span>
-                <span className="text-sm font-medium">91% Avg</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
         <Card className="shadow-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -262,31 +232,6 @@ export const LiveMonitor = () => {
               </div>
               <div className="text-sm text-muted-foreground">
                 Location: Living Room Sofa
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Video className="w-4 h-4 text-primary" />
-              Camera Health
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Resolution</span>
-                <span className="text-sm font-medium">1080p</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Frame Rate</span>
-                <span className="text-sm font-medium">30 FPS</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Connection</span>
-                <Badge className="bg-success text-success-foreground">Strong</Badge>
               </div>
             </div>
           </CardContent>

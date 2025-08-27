@@ -636,6 +636,53 @@ router.put('/:id/notifications/:contactId', protect, [
   }
 });
 
+// @desc    Trigger SOS alert
+// @route   POST /api/alerts/sos
+// @access  Private
+router.post('/sos', protect, async (req, res) => {
+  try {
+    const alertData = {
+      userId: req.user._id,
+      alertType: 'sos',
+      severity: 'critical',
+      title: 'SOS Alert Triggered',
+      description: 'The user has manually triggered an SOS alert from the dashboard.',
+      location: req.body.location || 'Unknown location',
+    };
+
+    const alert = await Alert.create(alertData);
+
+    // Immediately notify all primary emergency contacts
+    const primaryContacts = await Contact.find({
+      userId: req.user._id,
+      isPrimary: true,
+      isActive: true,
+    });
+    for (const contact of primaryContacts) {
+      if (contact.notificationPreferences.email.enabled) {
+        await alert.addNotification(contact._id, 'email');
+      }
+      if (contact.notificationPreferences.sms.enabled) {
+        await alert.addNotification(contact._id, 'sms');
+      }
+      if (contact.notificationPreferences.push.enabled) {
+        await alert.addNotification(contact._id, 'push');
+      }
+    }
+    res.status(201).json({
+      success: true,
+      data: { alert },
+      message: 'SOS alert triggered successfully. Primary contacts are being notified.',
+    });
+  } catch (error) {
+    console.error('SOS alert error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error while triggering SOS alert' },
+    });
+  }
+});
+
 // @desc    Get all alerts (Admin only)
 // @route   GET /api/alerts/admin/all
 // @access  Private, Admin only

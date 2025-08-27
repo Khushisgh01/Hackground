@@ -1,6 +1,19 @@
+// anshikagarg0410/familysafe-ai/familysafe-ai-main/src/components/Layout.tsx
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import {
   Shield,
   Video,
@@ -12,6 +25,8 @@ import {
   Phone,
   User,
 } from "lucide-react";
+import { toast } from "sonner";
+
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -30,6 +45,38 @@ const navigationItems = [
 
 export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const handleSOSTrigger = () => {
+    // NOTE: In a real application, you would make a POST request to your backend
+    // For now, we just show a success toast.
+    console.log("SOS TRIGGERED");
+    toast.success("SOS Alert Triggered!", {
+      description: "Emergency contacts have been notified.",
+    });
+    // Example API call (uncomment when backend is connected)
+    /*
+    fetch('/api/alerts/sos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer YOUR_AUTH_TOKEN`
+      },
+      body: JSON.stringify({ location: 'Dashboard' })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        toast.success("SOS Alert Triggered!", {
+          description: "Emergency contacts have been notified.",
+        });
+      } else {
+        toast.error("Failed to trigger SOS alert.");
+      }
+    })
+    .catch(() => toast.error("Failed to trigger SOS alert."));
+    */
+  };
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -92,8 +139,31 @@ export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
           </nav>
 
           {/* Emergency Contact */}
-          <div className="p-4 border-t border-sidebar-border">
-            <Button variant="destructive" className="w-full gap-2">
+          <div className="p-4 border-t border-sidebar-border space-y-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="w-full gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  SOS
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure you want to trigger an SOS alert?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will immediately notify all your primary emergency contacts.
+                    This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleSOSTrigger}>
+                    Yes, Send SOS
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Button variant="outline" className="w-full gap-2">
               <Phone className="w-4 h-4" />
               Emergency Call
             </Button>
