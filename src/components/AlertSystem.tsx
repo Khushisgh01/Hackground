@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   AlertTriangle,
   CheckCircle,
@@ -17,10 +20,12 @@ import {
   Heart,
   Video,
   Play,
+  FileText, // Added for notes icon
 } from "lucide-react";
 import { toast } from "sonner";
 
-const mockAlerts = [
+// Added 'notes' array to each alert object
+const initialAlerts = [
   {
     id: 1,
     type: "high",
@@ -31,6 +36,7 @@ const mockAlerts = [
     location: "Living Room",
     confidence: 96,
     hasVideo: true,
+    notes: ["Called primary contact, they are on their way."],
   },
   {
     id: 2,
@@ -42,6 +48,7 @@ const mockAlerts = [
     location: "Bedroom",
     confidence: 84,
     hasVideo: true,
+    notes: [],
   },
   {
     id: 3,
@@ -53,6 +60,7 @@ const mockAlerts = [
     location: "Kitchen",
     confidence: 90,
     hasVideo: false,
+    notes: [],
   },
   {
     id: 4,
@@ -64,19 +72,20 @@ const mockAlerts = [
     location: "Bedroom",
     confidence: 78,
     hasVideo: true,
+    notes: ["User confirmed they were just getting a glass of water."],
   },
 ];
 
 export const AlertSystem = () => {
-  const [selectedAlert, setSelectedAlert] = useState(mockAlerts[0]);
+  const [alerts, setAlerts] = useState(initialAlerts);
+  const [selectedAlert, setSelectedAlert] = useState(alerts[0]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState("all");
+  const [noteText, setNoteText] = useState("");
 
-  const filteredAlerts = mockAlerts.filter(alert => {
+  const filteredAlerts = alerts.filter(alert => {
     const matchesSearch = alert.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          alert.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterType === "all" || alert.type === filterType;
-    return matchesSearch && matchesFilter;
+    return matchesSearch;
   });
 
   const getAlertIcon = (type: string) => {
@@ -105,6 +114,46 @@ export const AlertSystem = () => {
     }
   };
 
+  const handleAcknowledge = (alertId: number) => {
+    const newAlerts = alerts.map(alert =>
+      alert.id === alertId ? { ...alert, status: 'acknowledged' } : alert
+    );
+    setAlerts(newAlerts);
+    setSelectedAlert(newAlerts.find(a => a.id === alertId) || newAlerts[0]);
+    toast.success("Alert Acknowledged");
+  };
+
+  const handleResolve = (alertId: number) => {
+    const newAlerts = alerts.map(alert =>
+      alert.id === alertId ? { ...alert, status: 'resolved' } : alert
+    );
+    setAlerts(newAlerts);
+    setSelectedAlert(newAlerts.find(a => a.id === alertId) || newAlerts[0]);
+    toast.success("Alert Resolved");
+  };
+
+  const handleSaveNote = () => {
+    if (!noteText.trim()) {
+      toast.error("Note cannot be empty.");
+      return;
+    }
+    
+    const updatedAlerts = alerts.map(alert => {
+        if (alert.id === selectedAlert.id) {
+            return { ...alert, notes: [...alert.notes, noteText] };
+        }
+        return alert;
+    });
+
+    setAlerts(updatedAlerts);
+    setSelectedAlert(updatedAlerts.find(a => a.id === selectedAlert.id)!);
+    
+    toast.success("Note Saved", {
+      description: `Your note has been added to the alert "${selectedAlert.title}".`,
+    });
+    setNoteText("");
+  };
+
   const handleContactAlert = (method: string) => {
     toast.success(`Alert sent via ${method}!`);
   };
@@ -115,7 +164,7 @@ export const AlertSystem = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header and Summary Cards ... */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Alert Management</h1>
@@ -139,14 +188,13 @@ export const AlertSystem = () => {
         </div>
       </div>
 
-      {/* Alert Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="shadow-card">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">High Priority</p>
-                <p className="text-2xl font-bold text-destructive">1</p>
+                <p className="text-2xl font-bold text-destructive">{alerts.filter(a => a.type === 'high' && a.status !== 'resolved').length}</p>
               </div>
               <AlertTriangle className="w-8 h-8 text-destructive" />
             </div>
@@ -158,7 +206,7 @@ export const AlertSystem = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Medium Priority</p>
-                <p className="text-2xl font-bold text-warning">2</p>
+                <p className="text-2xl font-bold text-warning">{alerts.filter(a => a.type === 'medium' && a.status !== 'resolved').length}</p>
               </div>
               <Clock className="w-8 h-8 text-warning" />
             </div>
@@ -170,7 +218,7 @@ export const AlertSystem = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Low Priority</p>
-                <p className="text-2xl font-bold text-primary">1</p>
+                <p className="text-2xl font-bold text-primary">{alerts.filter(a => a.type === 'low' && a.status !== 'resolved').length}</p>
               </div>
               <Shield className="w-8 h-8 text-primary" />
             </div>
@@ -182,7 +230,7 @@ export const AlertSystem = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Resolved Today</p>
-                <p className="text-2xl font-bold text-success">2</p>
+                <p className="text-2xl font-bold text-success">{alerts.filter(a => a.status === 'resolved').length}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-success" />
             </div>
@@ -251,7 +299,7 @@ export const AlertSystem = () => {
                 <TabsTrigger value="actions">Actions</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="details" className="space-y-4">
+              <TabsContent value="details" className="space-y-4 pt-4">
                 <div className="space-y-3">
                   <div>
                     <h4 className="font-medium text-lg">{selectedAlert.title}</h4>
@@ -276,6 +324,24 @@ export const AlertSystem = () => {
                       {getStatusBadge(selectedAlert.status)}
                     </div>
                   </div>
+
+                  {/* Notes Section */}
+                  {selectedAlert.notes && selectedAlert.notes.length > 0 && (
+                    <div className="pt-2">
+                      <h4 className="font-medium flex items-center gap-2 mb-2">
+                        <FileText className="w-4 h-4"/>
+                        Notes
+                      </h4>
+                      <div className="space-y-2">
+                        {selectedAlert.notes.map((note, index) => (
+                          <div key={index} className="text-sm bg-muted p-3 rounded-md">
+                            {note}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               </TabsContent>
 
@@ -339,15 +405,54 @@ export const AlertSystem = () => {
                   <div>
                     <h4 className="font-medium mb-3">Alert Management</h4>
                     <div className="space-y-2">
-                      <Button variant="outline" className="w-full">
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => handleAcknowledge(selectedAlert.id)}
+                        disabled={selectedAlert.status === 'acknowledged' || selectedAlert.status === 'resolved'}
+                      >
                         Mark as Acknowledged
                       </Button>
-                      <Button variant="outline" className="w-full">
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => handleResolve(selectedAlert.id)}
+                        disabled={selectedAlert.status === 'resolved'}
+                      >
                         Mark as Resolved
                       </Button>
-                      <Button variant="outline" className="w-full">
-                        Add Notes
-                      </Button>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                           <Button variant="outline" className="w-full">Add Notes</Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Add Note to "{selectedAlert.title}"</DialogTitle>
+                            <DialogDescription>
+                              Add any relevant information or observations about this alert.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="note" className="text-right">
+                                Note
+                              </Label>
+                              <Textarea
+                                id="note"
+                                value={noteText}
+                                onChange={(e) => setNoteText(e.target.value)}
+                                className="col-span-3"
+                                placeholder="Type your note here."
+                              />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <DialogClose asChild>
+                              <Button type="button" onClick={handleSaveNote}>Save Note</Button>
+                            </DialogClose>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                     </div>
                   </div>
                 </div>

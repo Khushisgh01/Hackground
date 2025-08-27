@@ -12,7 +12,7 @@ const alertSchema = new mongoose.Schema({
   },
   alertType: {
     type: String,
-    enum: ['fall', 'inactivity', 'medical', 'security', 'wellness', 'system'],
+    enum: ['fall', 'inactivity', 'medical', 'security', 'wellness', 'system', 'sos'], // Added 'sos'
     required: true
   },
   severity: {

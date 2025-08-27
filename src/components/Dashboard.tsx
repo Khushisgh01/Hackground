@@ -64,66 +64,6 @@ export const Dashboard = ({ onTabChange }: DashboardProps) => {
         </div>
       </div>
 
-      {/* Quick Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">System Status</CardTitle>
-            <Shield className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">Online</div>
-            <p className="text-xs text-muted-foreground">All systems operational</p>
-            <div className="flex items-center mt-2 gap-2">
-              <Wifi className="h-3 w-3 text-success" />
-              <Battery className="h-3 w-3 text-success" />
-              <span className="text-xs text-success">Connected</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Monitors</CardTitle>
-            <Eye className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">3/4</div>
-            <p className="text-xs text-muted-foreground">Cameras online</p>
-            <Progress value={75} className="mt-2" />
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Recent Alerts</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-warning" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">2</div>
-            <p className="text-xs text-muted-foreground">In the last 24 hours</p>
-            <Badge variant="outline" className="mt-2 text-xs">
-              Low Priority
-            </Badge>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Wellness Score</CardTitle>
-            <Heart className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">92%</div>
-            <p className="text-xs text-muted-foreground">Above average</p>
-            <div className="flex items-center mt-2">
-              <Activity className="h-3 w-3 text-success mr-1" />
-              <span className="text-xs text-success">Excellent</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Main Dashboard Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Live Activity Feed */}
@@ -172,7 +112,7 @@ export const Dashboard = ({ onTabChange }: DashboardProps) => {
             <Button 
               variant="outline" 
               className="w-full"
-              onClick={() => onTabChange("alerts")}
+              onClick={() => onTabChange("activity-log")} // Changed from "alerts"
             >
               View All Activities
             </Button>

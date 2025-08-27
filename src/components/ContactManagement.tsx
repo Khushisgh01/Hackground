@@ -368,7 +368,7 @@ export const ContactManagement = () => {
                       onClick={() => handleTestAlert(contact)}
                     >
                       <MessageSquare className="w-3 h-3 mr-1" />
-                      Test
+                      Text
                     </Button>
                     <Button variant="outline" size="sm">
                       <Edit className="w-3 h-3" />
