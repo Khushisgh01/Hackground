@@ -34,7 +34,7 @@ const wellnessMetrics = [
   { name: "Medication Adherence", value: 95, trend: "+1%", icon: Pill, color: "text-warning" },
 ];
 
-const todaySchedule = [
+const initialSchedule = [
   { time: "08:00", task: "Morning Medication", status: "completed", type: "medication" },
   { time: "09:00", task: "Breakfast", status: "completed", type: "meal" },
   { time: "13:00", task: "Lunch", status: "pending", type: "meal" },
@@ -45,6 +45,8 @@ const todaySchedule = [
 export const WellnessTracking = () => {
   const [moodEntry, setMoodEntry] = useState("");
   const [selectedMood, setSelectedMood] = useState<"happy" | "neutral" | "sad" | null>(null);
+  const [todaySchedule, setTodaySchedule] = useState(initialSchedule);
+
 
   // State for the Set Reminder dialog
   const [reminderTitle, setReminderTitle] = useState("");
@@ -76,7 +78,13 @@ export const WellnessTracking = () => {
   };
 
   const handleTaskComplete = (taskIndex: number) => {
-    toast.success("Task marked as completed!");
+    const newSchedule = [...todaySchedule];
+    const task = newSchedule[taskIndex];
+    if (task) {
+      task.status = "completed";
+      setTodaySchedule(newSchedule);
+      toast.success(`Task "${task.task}" marked as completed!`);
+    }
   };
 
   const getTaskIcon = (type: string) => {
