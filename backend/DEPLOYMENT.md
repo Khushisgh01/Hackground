@@ -27,24 +27,9 @@ This guide will help you deploy the SafeGuard AI backend to various cloud platfo
 After deployment, Render will provide you with a URL like:
 `https://your-app-name.onrender.com`
 
-## 🐳 Docker Deployment
+## 🐳 Docker
 
-### Local Docker
-
-```bash
-# Build and run with Docker Compose
-docker-compose up -d
-
-# Or build and run manually
-docker build -t safeguard-ai-backend .
-docker run -p 5000:5000 safeguard-ai-backend
-```
-
-### Cloud Docker
-
-1. Build your Docker image
-2. Push to Docker Hub or your preferred registry
-3. Deploy to any platform that supports Docker
+Docker support has been removed. Please use Render, Railway, or run locally with Node.js.
 
 ## ☁️ Other Cloud Platforms
 
@@ -126,8 +111,7 @@ CLOUDINARY_API_SECRET=your-api-secret
 
 ```bash
 # Install MongoDB locally
-# Or use Docker
-docker run -d -p 27017:27017 --name mongodb mongo:7.0
+# Or use a managed MongoDB like MongoDB Atlas
 ```
 
 ## 📱 Frontend Integration
@@ -183,7 +167,7 @@ Your backend includes a health check endpoint at `/health` that returns:
 - Render: View logs in the dashboard
 - Railway: Use `railway logs`
 - Heroku: Use `heroku logs --tail`
-- Docker: Use `docker logs container-name`
+ 
 
 ## 🚨 Troubleshooting
 

@@ -18,8 +18,10 @@ import {
   Clock,
   Bell,
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export const UserProfile = () => {
+  const { user, logout } = useAuth();
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Profile Header */}
@@ -38,7 +40,7 @@ export const UserProfile = () => {
               <div className="relative">
                 <Avatar className="w-32 h-32">
                   <AvatarImage src="/placeholder.svg" alt="Profile picture" />
-                  <AvatarFallback className="text-2xl">JD</AvatarFallback>
+                  <AvatarFallback className="text-2xl">{user ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}` : 'U'}</AvatarFallback>
                 </Avatar>
                 <Button
                   size="sm"
@@ -59,11 +61,11 @@ export const UserProfile = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" defaultValue="John" />
+                  <Input id="firstName" defaultValue={user?.firstName || ""} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" defaultValue="Doe" />
+                  <Input id="lastName" defaultValue={user?.lastName || ""} />
                 </div>
               </div>
 
@@ -75,7 +77,7 @@ export const UserProfile = () => {
                     id="email"
                     type="email"
                     className="pl-10"
-                    defaultValue="john.doe@example.com"
+                    defaultValue={user?.email || ""}
                   />
                 </div>
               </div>
@@ -88,7 +90,7 @@ export const UserProfile = () => {
                     id="phone"
                     type="tel"
                     className="pl-10"
-                    defaultValue="+1 (555) 123-4567"
+                    defaultValue={user?.phone || ""}
                   />
                 </div>
               </div>
@@ -121,7 +123,7 @@ export const UserProfile = () => {
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-sm font-medium">Member Since</span>
-              <span className="text-sm text-muted-foreground">January 15, 2024</span>
+              <span className="text-sm text-muted-foreground">Today</span>
             </div>
             <Separator />
             <div className="flex justify-between items-center">
@@ -131,7 +133,7 @@ export const UserProfile = () => {
             <Separator />
             <div className="flex justify-between items-center">
               <span className="text-sm font-medium">Last Login</span>
-              <span className="text-sm text-muted-foreground">Today, 2:30 PM</span>
+              <span className="text-sm text-muted-foreground">Today</span>
             </div>
             <Separator />
             <div className="flex justify-between items-center">
@@ -202,7 +204,8 @@ export const UserProfile = () => {
       </Card>
 
       {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-end">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
+        <Button variant="ghost" onClick={logout}>Log out</Button>
         <Button variant="outline">
           <Edit className="w-4 h-4 mr-2" />
           Cancel Changes

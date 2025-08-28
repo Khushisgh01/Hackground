@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,135 +21,166 @@ import {
   MessageSquare,
   Video,
   CheckCircle,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ContactAPI } from "@/lib/api";
 
-const mockContacts = [
-  {
-    id: 1,
-    name: "Sarah Johnson",
-    role: "Primary Caregiver",
-    relationship: "Daughter",
-    phone: "+1 (555) 123-4567",
-    email: "sarah.j@email.com",
-    priority: "high",
-    alertTypes: ["emergency", "wellness", "medication"],
-    status: "active",
-    responseTime: "2 min",
-  },
-  {
-    id: 2,
-    name: "Dr. Michael Chen",
-    role: "Healthcare Provider",
-    relationship: "Doctor",
-    phone: "+1 (555) 987-6543",
-    email: "m.chen@hospital.com",
-    priority: "high",
-    alertTypes: ["emergency", "health"],
-    status: "active",
-    responseTime: "5 min",
-  },
-  {
-    id: 3,
-    name: "Robert Smith",
-    role: "Emergency Contact",
-    relationship: "Neighbor",
-    phone: "+1 (555) 246-8135",
-    email: "rob.smith@email.com",
-    priority: "medium",
-    alertTypes: ["emergency"],
-    status: "active",
-    responseTime: "15 min",
-  },
-  {
-    id: 4,
-    name: "Emergency Services",
-    role: "Emergency Services",
-    relationship: "Official",
-    phone: "911",
-    email: "",
-    priority: "critical",
-    alertTypes: ["emergency"],
-    status: "active",
-    responseTime: "Immediate",
-  },
-];
+interface Contact {
+  _id: string;
+  contactType: string;
+  firstName: string;
+  lastName: string;
+  relationship: string;
+  email: string;
+  phone: string;
+  isPrimary: boolean;
+  isActive: boolean;
+  alertTypes: string[];
+  emergencyResponse?: {
+    canRespond: boolean;
+    responseTime: number;
+  };
+}
 
 export const ContactManagement = () => {
-  const [contacts, setContacts] = useState(mockContacts);
-  const [selectedContact, setSelectedContact] = useState(null);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [newContact, setNewContact] = useState({
-    name: "",
-    role: "",
+    contactType: "",
+    firstName: "",
+    lastName: "",
     relationship: "",
-    phone: "",
     email: "",
-    priority: "medium",
-    alertTypes: [],
+    phone: "",
+    isPrimary: false,
   });
 
-  const getRoleBadge = (role: string, priority: string) => {
+  // Load contacts on component mount
+  useEffect(() => {
+    loadContacts();
+  }, []);
+
+  const loadContacts = async () => {
+    try {
+      setLoading(true);
+      const response = await ContactAPI.getContacts();
+      setContacts(response.data.contacts);
+    } catch (error) {
+      console.error('Failed to load contacts:', error);
+      toast.error('Failed to load contacts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getRoleBadge = (contactType: string, isPrimary: boolean) => {
     const getVariant = () => {
-      switch (priority) {
-        case "critical":
+      if (isPrimary) return "default";
+      switch (contactType) {
+        case "emergency_contact":
           return "destructive";
-        case "high":
-          return "default";
-        case "medium":
+        case "family_member":
           return "secondary";
+        case "healthcare_provider":
+          return "outline";
         default:
           return "outline";
       }
     };
 
-    return <Badge variant={getVariant()}>{role}</Badge>;
+    const getLabel = () => {
+      switch (contactType) {
+        case "family_member":
+          return "Family Member";
+        case "caregiver":
+          return "Caregiver";
+        case "emergency_contact":
+          return "Emergency Contact";
+        case "healthcare_provider":
+          return "Healthcare Provider";
+        case "neighbor":
+          return "Neighbor";
+        default:
+          return contactType;
+      }
+    };
+
+    return <Badge variant={getVariant()}>{getLabel()}</Badge>;
   };
 
-  const getRoleIcon = (role: string) => {
-    switch (role.toLowerCase()) {
-      case "primary caregiver":
+  const getRoleIcon = (contactType: string) => {
+    switch (contactType) {
+      case "caregiver":
         return <Heart className="w-5 h-5 text-primary" />;
-      case "healthcare provider":
+      case "healthcare_provider":
         return <Shield className="w-5 h-5 text-success" />;
-      case "emergency contact":
+      case "emergency_contact":
         return <AlertTriangle className="w-5 h-5 text-warning" />;
-      case "emergency services":
-        return <Phone className="w-5 h-5 text-destructive" />;
+      case "family_member":
+        return <Users className="w-5 h-5 text-primary" />;
+      case "neighbor":
+        return <Home className="w-5 h-5 text-muted-foreground" />;
       default:
         return <Users className="w-5 h-5 text-muted-foreground" />;
     }
   };
 
-  const handleAddContact = () => {
-    const contact = {
-      ...newContact,
-      id: Date.now(),
-      status: "active",
-      responseTime: "Unknown",
-    };
-    setContacts([...contacts, contact]);
-    setNewContact({
-      name: "",
-      role: "",
-      relationship: "",
-      phone: "",
-      email: "",
-      priority: "medium",
-      alertTypes: [],
-    });
-    setIsAddDialogOpen(false);
-    toast.success("Contact added successfully!");
+  const handleAddContact = async () => {
+    if (!newContact.firstName || !newContact.lastName || !newContact.relationship || !newContact.email || !newContact.phone || !newContact.contactType) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const response = await ContactAPI.createContact(newContact);
+      setContacts([...contacts, response.data.contact]);
+      setNewContact({
+        contactType: "",
+        firstName: "",
+        lastName: "",
+        relationship: "",
+        email: "",
+        phone: "",
+        isPrimary: false,
+      });
+      setIsAddDialogOpen(false);
+      toast.success("Contact added successfully!");
+    } catch (error) {
+      console.error('Failed to add contact:', error);
+      toast.error('Failed to add contact');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleTestAlert = (contact: any) => {
-    toast.info(`Test alert sent to ${contact.name}`);
+  const handleTestAlert = (contact: Contact) => {
+    toast.info(`Test alert sent to ${contact.firstName} ${contact.lastName}`);
   };
 
-  const handleDeleteContact = (contactId: number) => {
-    setContacts(contacts.filter(c => c.id !== contactId));
-    toast.success("Contact removed");
+  const handleDeleteContact = async (contactId: string) => {
+    try {
+      await ContactAPI.deleteContact(contactId);
+      setContacts(contacts.filter(c => c._id !== contactId));
+      toast.success("Contact removed");
+    } catch (error) {
+      console.error('Failed to delete contact:', error);
+      toast.error('Failed to delete contact');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin" />
+        <span className="ml-2">Loading contacts...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -179,44 +210,54 @@ export const ContactManagement = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="name">Full Name</Label>
+                    <Label htmlFor="firstName">First Name *</Label>
                     <Input
-                      id="name"
-                      value={newContact.name}
-                      onChange={(e) => setNewContact({...newContact, name: e.target.value})}
-                      placeholder="Enter name"
+                      id="firstName"
+                      value={newContact.firstName}
+                      onChange={(e) => setNewContact({...newContact, firstName: e.target.value})}
+                      placeholder="Enter first name"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="relationship">Relationship</Label>
+                    <Label htmlFor="lastName">Last Name *</Label>
                     <Input
-                      id="relationship"
-                      value={newContact.relationship}
-                      onChange={(e) => setNewContact({...newContact, relationship: e.target.value})}
-                      placeholder="e.g., Daughter"
+                      id="lastName"
+                      value={newContact.lastName}
+                      onChange={(e) => setNewContact({...newContact, lastName: e.target.value})}
+                      placeholder="Enter last name"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="role">Role</Label>
-                  <Select onValueChange={(value) => setNewContact({...newContact, role: value})}>
+                  <Label htmlFor="relationship">Relationship *</Label>
+                  <Input
+                    id="relationship"
+                    value={newContact.relationship}
+                    onChange={(e) => setNewContact({...newContact, relationship: e.target.value})}
+                    placeholder="e.g., Daughter, Brother"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="contactType">Contact Type *</Label>
+                  <Select onValueChange={(value) => setNewContact({...newContact, contactType: value})}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
+                      <SelectValue placeholder="Select contact type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Primary Caregiver">Primary Caregiver</SelectItem>
-                      <SelectItem value="Healthcare Provider">Healthcare Provider</SelectItem>
-                      <SelectItem value="Emergency Contact">Emergency Contact</SelectItem>
-                      <SelectItem value="Family Member">Family Member</SelectItem>
-                      <SelectItem value="Neighbor">Neighbor</SelectItem>
+                      <SelectItem value="family_member">Family Member</SelectItem>
+                      <SelectItem value="caregiver">Caregiver</SelectItem>
+                      <SelectItem value="emergency_contact">Emergency Contact</SelectItem>
+                      <SelectItem value="healthcare_provider">Healthcare Provider</SelectItem>
+                      <SelectItem value="neighbor">Neighbor</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="phone">Phone *</Label>
                     <Input
                       id="phone"
                       value={newContact.phone}
@@ -225,34 +266,41 @@ export const ContactManagement = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="priority">Priority</Label>
-                    <Select onValueChange={(value) => setNewContact({...newContact, priority: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="critical">Critical</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="low">Low</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newContact.email}
+                      onChange={(e) => setNewContact({...newContact, email: e.target.value})}
+                      placeholder="email@example.com"
+                    />
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="email">Email (Optional)</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newContact.email}
-                    onChange={(e) => setNewContact({...newContact, email: e.target.value})}
-                    placeholder="email@example.com"
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isPrimary"
+                    checked={newContact.isPrimary}
+                    onChange={(e) => setNewContact({...newContact, isPrimary: e.target.checked})}
+                    className="rounded"
                   />
+                  <Label htmlFor="isPrimary">Set as primary contact</Label>
                 </div>
 
-                <Button onClick={handleAddContact} className="w-full">
-                  Add Contact
+                <Button 
+                  onClick={handleAddContact} 
+                  className="w-full"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Contact'
+                  )}
                 </Button>
               </div>
             </DialogContent>
@@ -280,7 +328,7 @@ export const ContactManagement = () => {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Emergency Contacts</p>
                 <p className="text-2xl font-bold text-destructive">
-                  {contacts.filter(c => c.priority === "critical" || c.role.includes("Emergency")).length}
+                  {contacts.filter(c => c.contactType === "emergency_contact").length}
                 </p>
               </div>
               <AlertTriangle className="w-8 h-8 text-destructive" />
@@ -294,7 +342,7 @@ export const ContactManagement = () => {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Caregivers</p>
                 <p className="text-2xl font-bold text-primary">
-                  {contacts.filter(c => c.role.includes("Caregiver") || c.role.includes("Healthcare")).length}
+                  {contacts.filter(c => c.contactType === "caregiver" || c.contactType === "healthcare_provider").length}
                 </p>
               </div>
               <Heart className="w-8 h-8 text-primary" />
@@ -308,7 +356,7 @@ export const ContactManagement = () => {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Active Contacts</p>
                 <p className="text-2xl font-bold text-success">
-                  {contacts.filter(c => c.status === "active").length}
+                  {contacts.filter(c => c.isActive).length}
                 </p>
               </div>
               <CheckCircle className="w-8 h-8 text-success" />
@@ -326,65 +374,83 @@ export const ContactManagement = () => {
         </TabsList>
 
         <TabsContent value="contacts" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {contacts.map((contact) => (
-              <Card key={contact.id} className="shadow-card">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {getRoleIcon(contact.role)}
-                      <div>
-                        <CardTitle className="text-lg">{contact.name}</CardTitle>
-                        <CardDescription>{contact.relationship}</CardDescription>
+          {contacts.length === 0 ? (
+            <Card className="shadow-card">
+              <CardContent className="p-12 text-center">
+                <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">No contacts yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Add your first emergency contact to get started
+                </p>
+                <Button onClick={() => setIsAddDialogOpen(true)}>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Contact
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {contacts.map((contact) => (
+                <Card key={contact._id} className="shadow-card">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {getRoleIcon(contact.contactType)}
+                        <div>
+                          <CardTitle className="text-lg">{contact.firstName} {contact.lastName}</CardTitle>
+                          <CardDescription>{contact.relationship}</CardDescription>
+                        </div>
                       </div>
+                      {getRoleBadge(contact.contactType, contact.isPrimary)}
                     </div>
-                    {getRoleBadge(contact.role, contact.priority)}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">{contact.phone}</span>
-                    </div>
-                    {contact.email && (
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{contact.email}</span>
+                        <Phone className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{contact.phone}</span>
                       </div>
-                    )}
-                  </div>
+                      {contact.email && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm">{contact.email}</span>
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Response Time:</span>
-                    <span className="font-medium">{contact.responseTime}</span>
-                  </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Response Time:</span>
+                      <span className="font-medium">
+                        {contact.emergencyResponse?.responseTime ? `${contact.emergencyResponse.responseTime} min` : 'Unknown'}
+                      </span>
+                    </div>
 
-                  <div className="flex gap-2 pt-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => handleTestAlert(contact)}
-                    >
-                      <MessageSquare className="w-3 h-3 mr-1" />
-                      Text
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Edit className="w-3 h-3" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleDeleteContact(contact.id)}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => handleTestAlert(contact)}
+                      >
+                        <MessageSquare className="w-3 h-3 mr-1" />
+                        Text
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <Edit className="w-3 h-3" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleDeleteContact(contact._id)}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="escalation" className="space-y-6">

@@ -14,8 +14,10 @@ import {
   Eye,
   Wifi,
   Battery,
+  Phone,
 } from "lucide-react";
 import heroImage from "@/assets/hero-image.jpg";
+import { AlertAPI } from "@/lib/api";
 
 interface DashboardProps {
   onTabChange: (tab: string) => void;
@@ -59,6 +61,15 @@ export const Dashboard = ({ onTabChange }: DashboardProps) => {
             >
               <Heart className="w-5 h-5" />
               View Wellness
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="xl"
+              onClick={() => onTabChange("alerts")}
+              className="animate-pulse"
+            >
+              <AlertTriangle className="w-5 h-5" />
+              SOS Alert
             </Button>
           </div>
         </div>
@@ -161,6 +172,43 @@ export const Dashboard = ({ onTabChange }: DashboardProps) => {
               <Users className="w-6 h-6" />
               Manage Contacts
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* Watch Integration */}
+        <Card className="shadow-card lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wifi className="w-5 h-5 text-primary" />
+              Watch Notifications
+            </CardTitle>
+            <CardDescription>
+              Receive SOS and alert pushes on your smartwatch via the Pushover app.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">Status</div>
+              <Badge variant="secondary">
+                {import.meta.env.VITE_PUSHOVER_ENABLED === 'true' ? 'Enabled' : 'Off (env not set)'}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    await AlertAPI.sendWatchTest();
+                    alert('Test push sent. Check your phone/watch.');
+                  } catch (e) {
+                    alert('Failed to send test push');
+                  }
+                }}
+              >
+                Send Test Push
+              </Button>
+              <Button variant="link" onClick={() => window.open('https://pushover.net', '_blank')}>Setup Guide</Button>
+            </div>
           </CardContent>
         </Card>
       </div>

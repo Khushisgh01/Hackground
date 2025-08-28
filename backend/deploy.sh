@@ -91,17 +91,8 @@ setup_local() {
     
     # Check if MongoDB is running
     if ! command -v mongod &> /dev/null; then
-        print_warning "MongoDB not found. Using Docker for local development..."
-        
-        if command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
-            print_status "Starting services with Docker Compose..."
-            docker-compose up -d
-            print_status "Services started. MongoDB available at localhost:27017"
-            print_status "Mongo Express available at localhost:8081"
-        else
-            print_error "Docker not found. Please install Docker and Docker Compose for local development"
-            exit 1
-        fi
+        print_error "MongoDB not found. Please install MongoDB locally or use a cloud MongoDB (e.g., Atlas). Docker support has been removed."
+        exit 1
     else
         print_status "MongoDB found. Starting local development server..."
     fi
@@ -220,15 +211,9 @@ main() {
             install_deps
             deploy_digitalocean
             ;;
-        "docker")
-            check_node
-            check_npm
-            install_deps
-            print_status "Building Docker image..."
-            docker build -t safeguard-ai-backend .
-            print_status "Docker image built successfully!"
-            print_status "Run with: docker run -p 5000:5000 safeguard-ai-backend"
-            ;;
+        # "docker")
+        #     echo "Docker support removed"
+        #     ;;
         *)
             echo "Usage: $0 {local|render|railway|heroku|digitalocean|docker}"
             echo ""
@@ -238,7 +223,7 @@ main() {
             echo "  railway      - Deploy to Railway"
             echo "  heroku       - Deploy to Heroku"
             echo "  digitalocean - Deploy to DigitalOcean App Platform"
-            echo "  docker       - Build Docker image"
+            # echo "  docker       - Build Docker image"
             echo ""
             echo "Example: $0 local"
             exit 1

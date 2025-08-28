@@ -20,9 +20,11 @@ import {
   Heart,
   Video,
   Play,
-  FileText, // Added for notes icon
+  FileText,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { AlertAPI } from "@/lib/api";
 
 // Added 'notes' array to each alert object
 const initialAlerts = [
@@ -81,6 +83,11 @@ export const AlertSystem = () => {
   const [selectedAlert, setSelectedAlert] = useState(alerts[0]);
   const [searchTerm, setSearchTerm] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [isSOSLoading, setIsSOSLoading] = useState(false);
+  const [isEmergencyCallLoading, setIsEmergencyCallLoading] = useState(false);
+  const [sosDialogOpen, setSosDialogOpen] = useState(false);
+  const [emergencyCallDialogOpen, setEmergencyCallDialogOpen] = useState(false);
+  const [location, setLocation] = useState("");
 
   const filteredAlerts = alerts.filter(alert => {
     const matchesSearch = alert.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -154,6 +161,63 @@ export const AlertSystem = () => {
     setNoteText("");
   };
 
+  const handleSOS = async () => {
+    if (!location.trim()) {
+      toast.error("Please enter your location");
+      return;
+    }
+
+    setIsSOSLoading(true);
+    try {
+      const response = await AlertAPI.triggerSOS({
+        location: location.trim(),
+        includeEmergencyCall: false
+      });
+
+      toast.success("SOS alert sent successfully!", {
+        description: "Emergency services and contacts have been notified."
+      });
+
+      setSosDialogOpen(false);
+      setLocation("");
+    } catch (error) {
+      console.error('SOS error:', error);
+      toast.error("Failed to send SOS alert", {
+        description: "Please try again or contact support."
+      });
+    } finally {
+      setIsSOSLoading(false);
+    }
+  };
+
+  const handleEmergencyCall = async () => {
+    if (!location.trim()) {
+      toast.error("Please enter your location");
+      return;
+    }
+
+    setIsEmergencyCallLoading(true);
+    try {
+      const response = await AlertAPI.triggerEmergencyCall({
+        location: location.trim()
+      });
+
+      toast.success("Emergency call initiated!", {
+        description: "Ambulance services and contacts have been notified."
+      });
+
+      setEmergencyCallDialogOpen(false);
+      setLocation("");
+    } catch (error) {
+      console.error('Emergency call error:', error);
+      toast.error("Failed to initiate emergency call", {
+        description: "Please try again or contact support."
+      });
+    } finally {
+      setIsEmergencyCallLoading(false);
+    }
+  };
+
   const handleContactAlert = (method: string) => {
     toast.success(`Alert sent via ${method}!`);
   };
@@ -185,6 +249,111 @@ export const AlertSystem = () => {
           <Button variant="outline" size="sm">
             <Filter className="w-4 h-4" />
           </Button>
+          
+          {/* SOS Buttons */}
+          <Dialog open={sosDialogOpen} onOpenChange={setSosDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="destructive" className="gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                SOS
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>🚨 Send SOS Alert</DialogTitle>
+                <DialogDescription>
+                  This will send an emergency alert to +91 8447879309 and all your contacts.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="location">Your Location *</Label>
+                  <Input
+                    id="location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="Enter your current location"
+                  />
+                </div>
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                  <p className="text-sm text-destructive font-medium">
+                    ⚠️ This will immediately notify emergency services and all your contacts.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setSosDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleSOS}
+                  disabled={isSOSLoading}
+                >
+                  {isSOSLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    'Send SOS Alert'
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={emergencyCallDialogOpen} onOpenChange={setEmergencyCallDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="destructive" className="gap-2">
+                <Phone className="w-4 h-4" />
+                Emergency Call
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>🚑 Emergency Call</DialogTitle>
+                <DialogDescription>
+                  This will call ambulance services (+91-102) and send alerts to all contacts.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="emergency-location">Your Location *</Label>
+                  <Input
+                    id="emergency-location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="Enter your current location"
+                  />
+                </div>
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                  <p className="text-sm text-destructive font-medium">
+                    🚑 This will call ambulance services and notify all your contacts immediately.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEmergencyCallDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleEmergencyCall}
+                  disabled={isEmergencyCallLoading}
+                >
+                  {isEmergencyCallLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Calling...
+                    </>
+                  ) : (
+                    'Call Ambulance'
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

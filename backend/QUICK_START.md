@@ -68,16 +68,9 @@ node deploy-render.js
 - `POST /api/monitoring/start` - Start monitoring
 - `POST /api/alerts` - Create alert
 
-## 🐳 Docker Alternative
+## 🐳 Docker
 
-```bash
-# Start with Docker Compose
-docker-compose up -d
-
-# Your backend will be available at http://localhost:5000
-# MongoDB at mongodb://localhost:27017
-# Mongo Express UI at http://localhost:8081
-```
+Docker support has been removed. Use local Node.js or deploy with Render instead.
 
 ## 🆘 Need Help?
 

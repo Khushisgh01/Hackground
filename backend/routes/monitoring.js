@@ -2,6 +2,8 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Monitoring = require('../models/Monitoring');
 const Alert = require('../models/Alert');
+const Contact = require('../models/Contact');
+const smsService = require('../services/smsService');
 const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
@@ -300,6 +302,33 @@ router.post('/:sessionId/activity', protect, [
           riskFactors: [activityData.activityType]
         }
       });
+
+      // Notify available contacts for this alert type
+      try {
+        const contacts = await Contact.getAvailableContactsForAlert(
+          req.user._id,
+          alert.alertType,
+          new Date()
+        );
+
+        for (const contact of contacts) {
+          if (contact.notificationPreferences.email.enabled) {
+            await alert.addNotification(contact._id, 'email');
+          }
+          if (contact.notificationPreferences.sms.enabled) {
+            await alert.addNotification(contact._id, 'sms');
+            smsService
+              .sendAlertSMS(contact.phone, alert)
+              .then(() => alert.updateNotificationStatus(contact._id, 'sent', 'SMS sent'))
+              .catch((err) => alert.updateNotificationStatus(contact._id, 'failed', err?.message || 'SMS failed'));
+          }
+          if (contact.notificationPreferences.push.enabled) {
+            await alert.addNotification(contact._id, 'push');
+          }
+        }
+      } catch (notifyErr) {
+        console.error('Notification error for monitoring alert:', notifyErr);
+      }
 
       // Add alert to monitoring session
       monitoring.alerts.push({

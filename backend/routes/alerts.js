@@ -2,6 +2,10 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Alert = require('../models/Alert');
 const Contact = require('../models/Contact');
+const smsService = require('../services/smsService');
+const { sendEmail, buildAlertEmail } = require('../services/emailService');
+const { sendPush, buildAlertPush, buildSosPush } = require('../services/pushService');
+const sosService = require('../services/sosService');
 const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
@@ -60,6 +64,19 @@ router.get('/', protect, async (req, res) => {
       success: false,
       error: { message: 'Server error while fetching alerts' }
     });
+  }
+});
+
+// @desc    Send a test push notification to verify watch integration
+// @route   POST /api/alerts/push-test
+// @access  Private
+router.post('/push-test', protect, async (req, res) => {
+  try {
+    const push = buildSosPush('Test from Dashboard');
+    const result = await sendPush({ ...push, title: 'FamilySafe Watch Test' });
+    res.json({ success: true, result });
+  } catch (e) {
+    res.status(500).json({ success: false, error: { message: e.message } });
   }
 });
 
@@ -152,16 +169,28 @@ router.post('/', protect, [
       new Date()
     );
 
-    // Add notifications for each contact
+    // Add notifications for each contact and notify immediately (email + SMS + Push)
     for (const contact of contacts) {
       if (contact.notificationPreferences.email.enabled) {
         await alert.addNotification(contact._id, 'email');
+        // fire-and-forget email to requested recipient
+        sendEmail({
+          to: 'khushisarojj@gmail.com',
+          ...buildAlertEmail(alert, req.user)
+        }).catch(() => {});
       }
       if (contact.notificationPreferences.sms.enabled) {
         await alert.addNotification(contact._id, 'sms');
+        // Fire-and-forget SMS sending, do not block response
+        smsService
+          .sendAlertSMS(contact.phone, alert)
+          .then(() => alert.updateNotificationStatus(contact._id, 'sent', 'SMS sent'))
+          .catch((err) => alert.updateNotificationStatus(contact._id, 'failed', err?.message || 'SMS failed'));
       }
       if (contact.notificationPreferences.push.enabled) {
         await alert.addNotification(contact._id, 'push');
+        const push = buildAlertPush(alert);
+        sendPush(push).catch(() => {});
       }
     }
 
@@ -641,44 +670,150 @@ router.put('/:id/notifications/:contactId', protect, [
 // @access  Private
 router.post('/sos', protect, async (req, res) => {
   try {
+    const { location = 'Unknown location', includeEmergencyCall = false } = req.body;
+
     const alertData = {
       userId: req.user._id,
       alertType: 'sos',
       severity: 'critical',
       title: 'SOS Alert Triggered',
       description: 'The user has manually triggered an SOS alert from the dashboard.',
-      location: req.body.location || 'Unknown location',
+      location: location,
     };
 
     const alert = await Alert.create(alertData);
 
-    // Immediately notify all primary emergency contacts
-    const primaryContacts = await Contact.find({
+    // Send SOS to the specified emergency number
+    let sosResult = null;
+    try {
+      sosResult = await sosService.sendSOSAlert(req.user, location);
+      console.log('SOS alert sent to emergency number:', sosResult);
+    } catch (sosError) {
+      console.error('Failed to send SOS to emergency number:', sosError);
+    }
+
+    // Send emergency call if requested
+    let emergencyCallResult = null;
+    if (includeEmergencyCall) {
+      try {
+        emergencyCallResult = await sosService.initiateEmergencyCall(req.user, location);
+        console.log('Emergency call initiated:', emergencyCallResult);
+      } catch (callError) {
+        console.error('Failed to initiate emergency call:', callError);
+      }
+    }
+
+    // Get all contacts and send SOS to them
+    const contacts = await Contact.find({
       userId: req.user._id,
-      isPrimary: true,
       isActive: true,
     });
-    for (const contact of primaryContacts) {
+
+    let contactResults = [];
+    if (contacts.length > 0) {
+      try {
+        contactResults = await sosService.sendSOSToContacts(req.user, contacts, location);
+        console.log('SOS sent to contacts:', contactResults);
+      } catch (contactError) {
+        console.error('Failed to send SOS to contacts:', contactError);
+      }
+    }
+
+    // Update alert with notification records and send email/push
+    for (const contact of contacts) {
       if (contact.notificationPreferences.email.enabled) {
         await alert.addNotification(contact._id, 'email');
+        sendEmail({
+          to: 'khushisarojj@gmail.com',
+          ...buildAlertEmail(alert, req.user)
+        }).catch(() => {});
       }
       if (contact.notificationPreferences.sms.enabled) {
         await alert.addNotification(contact._id, 'sms');
       }
       if (contact.notificationPreferences.push.enabled) {
         await alert.addNotification(contact._id, 'push');
+        const push = buildSosPush(location);
+        sendPush(push).catch(() => {});
       }
     }
+
     res.status(201).json({
       success: true,
-      data: { alert },
-      message: 'SOS alert triggered successfully. Primary contacts are being notified.',
+      data: { 
+        alert,
+        sosResult,
+        emergencyCallResult,
+        contactResults
+      },
+      message: 'SOS alert triggered successfully. Emergency services and contacts are being notified.',
     });
   } catch (error) {
     console.error('SOS alert error:', error);
     res.status(500).json({
       success: false,
       error: { message: 'Server error while triggering SOS alert' },
+    });
+  }
+});
+
+// @desc    Trigger Emergency Call
+// @route   POST /api/alerts/emergency-call
+// @access  Private
+router.post('/emergency-call', protect, async (req, res) => {
+  try {
+    const { location = 'Unknown location' } = req.body;
+
+    const alertData = {
+      userId: req.user._id,
+      alertType: 'sos',
+      severity: 'critical',
+      title: 'Emergency Call Requested',
+      description: 'The user has requested an emergency call to ambulance services.',
+      location: location,
+    };
+
+    const alert = await Alert.create(alertData);
+
+    // Initiate emergency call to ambulance
+    let emergencyCallResult = null;
+    try {
+      emergencyCallResult = await sosService.initiateEmergencyCall(req.user, location);
+      console.log('Emergency call initiated:', emergencyCallResult);
+    } catch (callError) {
+      console.error('Failed to initiate emergency call:', callError);
+    }
+
+    // Also send SOS to contacts
+    const contacts = await Contact.find({
+      userId: req.user._id,
+      isActive: true,
+    });
+
+    let contactResults = [];
+    if (contacts.length > 0) {
+      try {
+        contactResults = await sosService.sendSOSToContacts(req.user, contacts, location);
+        console.log('SOS sent to contacts:', contactResults);
+      } catch (contactError) {
+        console.error('Failed to send SOS to contacts:', contactError);
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      data: { 
+        alert,
+        emergencyCallResult,
+        contactResults
+      },
+      message: 'Emergency call initiated successfully. Ambulance services and contacts are being notified.',
+    });
+  } catch (error) {
+    console.error('Emergency call error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error while initiating emergency call' },
     });
   }
 });

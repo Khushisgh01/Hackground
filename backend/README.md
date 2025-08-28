@@ -241,15 +241,7 @@ npm start
 
 ### Docker Deployment
 
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-EXPOSE 5000
-CMD ["npm", "start"]
-```
+Docker support has been removed for this project. Please run locally with Node.js or deploy using Render (`render.yaml`) or your preferred platform.
 
 ## 🔒 Security Features
 
@@ -319,7 +311,7 @@ For support and questions:
 ## 🔮 Future Enhancements
 
 - **Real-time WebSocket**: Live monitoring updates
-- **AI Model Training**: Custom model development
+- **AI Model Training**: Custom model development (ML containerization removed)
 - **Mobile App**: Native mobile applications
 - **IoT Integration**: Smart device connectivity
 - **Analytics Dashboard**: Advanced reporting

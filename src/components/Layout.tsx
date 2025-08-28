@@ -26,6 +26,8 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 
 interface LayoutProps {
@@ -45,6 +47,8 @@ const navigationItems = [
 
 export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleSOSTrigger = () => {
     // NOTE: In a real application, you would make a POST request to your backend
@@ -110,6 +114,12 @@ export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
                 <p className="text-xs text-sidebar-foreground/60">Home Protection</p>
               </div>
             </div>
+            {user && (
+              <div className="mt-4 text-xs text-sidebar-foreground/70">
+                Signed in as<br />
+                <span className="font-medium">{user.firstName} {user.lastName}</span>
+              </div>
+            )}
           </div>
 
           {/* Navigation */}
@@ -140,6 +150,9 @@ export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
 
           {/* Emergency Contact */}
           <div className="p-4 border-t border-sidebar-border space-y-2">
+            <div className="text-xs text-sidebar-foreground/70 mb-2 px-1">
+              Watch Notifications: <span className="font-medium">{import.meta.env.VITE_PUSHOVER_ENABLED === 'true' ? 'Enabled' : 'Off (env not set)'}</span>
+            </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" className="w-full gap-2">
@@ -166,6 +179,16 @@ export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
             <Button variant="outline" className="w-full gap-2">
               <Phone className="w-4 h-4" />
               Emergency Call
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={() => {
+                logout();
+                navigate('/auth');
+              }}
+            >
+              Log out
             </Button>
           </div>
         </div>

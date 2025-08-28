@@ -24,7 +24,7 @@ console.log('🎯 Choose Your Deployment Method:');
 console.log('==================================');
 console.log('');
 console.log('1. 🌐 Render (Recommended - Free, Easy, Fast)');
-console.log('2. 🐳 Docker (Local/Cloud)');
+// console.log('2. 🐳 Docker (Local/Cloud)');
 console.log('3. 🚂 Railway (Alternative to Render)');
 console.log('4. 🦊 Heroku (Legacy but reliable)');
 console.log('5. 🐙 GitHub Actions (CI/CD)');
@@ -36,9 +36,9 @@ switch (deploymentMethod) {
   case 'render':
     showRenderDeployment();
     break;
-  case 'docker':
-    showDockerDeployment();
-    break;
+  // case 'docker':
+  //   showDockerDeployment();
+  //   break;
   case 'railway':
     showRailwayDeployment();
     break;
@@ -117,37 +117,7 @@ function showRenderDeployment() {
   console.log('   node deploy-now.js render');
 }
 
-function showDockerDeployment() {
-  console.log('🐳 Docker Deployment');
-  console.log('====================');
-  console.log('');
-  console.log('⏱️  Estimated time: 2-5 minutes');
-  console.log('💰 Cost: Free (local) or cloud costs');
-  console.log('🌍 Global CDN: Depends on cloud provider');
-  console.log('');
-  
-  console.log('🚀 Quick Start:');
-  console.log('');
-  console.log('1. 🐳 Start with Docker Compose:');
-  console.log('   docker-compose up -d');
-  console.log('');
-  
-  console.log('2. 🌐 Access your services:');
-  console.log('   - Backend: http://localhost:5000');
-  console.log('   - MongoDB: mongodb://localhost:27017');
-  console.log('   - Mongo Express: http://localhost:8081');
-  console.log('');
-  
-  console.log('3. 🧪 Test your backend:');
-  console.log('   curl http://localhost:5000/health');
-  console.log('');
-  
-  console.log('4. 🚀 Deploy to cloud:');
-  console.log('   - Build image: docker build -t safeguard-ai-backend .');
-  console.log('   - Push to registry: docker push your-registry/safeguard-ai-backend');
-  console.log('   - Deploy to your preferred cloud');
-  console.log('');
-}
+// function showDockerDeployment() { /* removed */ }
 
 function showRailwayDeployment() {
   console.log('🚂 Railway Deployment');
@@ -208,7 +178,7 @@ function showGitHubDeployment() {
 console.log('');
 console.log('🎯 To deploy now, choose your method:');
 console.log('   node deploy-now.js render    (Recommended)');
-console.log('   node deploy-now.js docker    (Local/Cloud)');
+// console.log('   node deploy-now.js docker    (Local/Cloud)');
 console.log('   node deploy-now.js railway   (Alternative)');
 console.log('   node deploy-now.js heroku    (Legacy)');
 console.log('   node deploy-now.js github    (CI/CD)');
