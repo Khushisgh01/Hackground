@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AlertAPI } from "@/lib/api";
+import { sendSosEmail } from "@/lib/email";
 
 // Added 'notes' array to each alert object
 const initialAlerts = [
@@ -87,7 +88,6 @@ export const AlertSystem = () => {
   const [isEmergencyCallLoading, setIsEmergencyCallLoading] = useState(false);
   const [sosDialogOpen, setSosDialogOpen] = useState(false);
   const [emergencyCallDialogOpen, setEmergencyCallDialogOpen] = useState(false);
-  const [location, setLocation] = useState("");
 
   const filteredAlerts = alerts.filter(alert => {
     const matchesSearch = alert.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -162,24 +162,23 @@ export const AlertSystem = () => {
   };
 
   const handleSOS = async () => {
-    if (!location.trim()) {
-      toast.error("Please enter your location");
-      return;
-    }
-
     setIsSOSLoading(true);
     try {
-      const response = await AlertAPI.triggerSOS({
-        location: location.trim(),
-        includeEmergencyCall: false
-      });
+      const response = await AlertAPI.triggerSOS({ includeEmergencyCall: false });
+      try {
+        await sendSosEmail({
+          subject: "SOS Alert Triggered",
+          message: "A user has triggered SOS from the Alerts page.",
+        });
+      } catch (e) {
+        console.error('EmailJS SOS send failed:', (e as Error)?.message);
+      }
 
       toast.success("SOS alert sent successfully!", {
         description: "Emergency services and contacts have been notified."
       });
 
       setSosDialogOpen(false);
-      setLocation("");
     } catch (error) {
       console.error('SOS error:', error);
       toast.error("Failed to send SOS alert", {
@@ -191,23 +190,23 @@ export const AlertSystem = () => {
   };
 
   const handleEmergencyCall = async () => {
-    if (!location.trim()) {
-      toast.error("Please enter your location");
-      return;
-    }
-
     setIsEmergencyCallLoading(true);
     try {
-      const response = await AlertAPI.triggerEmergencyCall({
-        location: location.trim()
-      });
+      const response = await AlertAPI.triggerEmergencyCall({});
+      try {
+        await sendSosEmail({
+          subject: "Emergency Call Initiated",
+          message: "A user has requested an emergency call to ambulance services.",
+        });
+      } catch (e) {
+        console.error('EmailJS Emergency send failed:', (e as Error)?.message);
+      }
 
       toast.success("Emergency call initiated!", {
         description: "Ambulance services and contacts have been notified."
       });
 
       setEmergencyCallDialogOpen(false);
-      setLocation("");
     } catch (error) {
       console.error('Emergency call error:', error);
       toast.error("Failed to initiate emergency call", {
@@ -266,15 +265,6 @@ export const AlertSystem = () => {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div>
-                  <Label htmlFor="location">Your Location *</Label>
-                  <Input
-                    id="location"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Enter your current location"
-                  />
-                </div>
                 <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
                   <p className="text-sm text-destructive font-medium">
                     ⚠️ This will immediately notify emergency services and all your contacts.
@@ -318,15 +308,6 @@ export const AlertSystem = () => {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div>
-                  <Label htmlFor="emergency-location">Your Location *</Label>
-                  <Input
-                    id="emergency-location"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Enter your current location"
-                  />
-                </div>
                 <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
                   <p className="text-sm text-destructive font-medium">
                     🚑 This will call ambulance services and notify all your contacts immediately.

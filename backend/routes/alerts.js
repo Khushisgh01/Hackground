@@ -10,6 +10,14 @@ const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
+function getAlertRecipientsFromEnv() {
+  const raw = process.env.ALERT_EMAIL_TO || '';
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 // @desc    Get user's alerts
 // @route   GET /api/alerts
 // @access  Private
@@ -18,18 +26,9 @@ router.get('/', protect, async (req, res) => {
     const { page = 1, limit = 10, status, severity, alertType } = req.query;
 
     const query = { userId: req.user._id };
-    
-    if (status) {
-      query.status = status;
-    }
-    
-    if (severity) {
-      query.severity = severity;
-    }
-    
-    if (alertType) {
-      query.alertType = alertType;
-    }
+    if (status) query.status = status;
+    if (severity) query.severity = severity;
+    if (alertType) query.alertType = alertType;
 
     const options = {
       page: parseInt(page),
@@ -57,13 +56,9 @@ router.get('/', protect, async (req, res) => {
         }
       }
     });
-
   } catch (error) {
     console.error('Get alerts error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while fetching alerts' }
-    });
+    res.status(500).json({ success: false, error: { message: 'Server error while fetching alerts' } });
   }
 });
 
@@ -91,165 +86,116 @@ router.get('/:id', protect, async (req, res) => {
     }).populate('monitoringSessionId', 'sessionId deviceInfo');
 
     if (!alert) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Alert not found' }
-      });
+      return res.status(404).json({ success: false, error: { message: 'Alert not found' } });
     }
 
-    res.json({
-      success: true,
-      data: { alert }
-    });
-
+    res.json({ success: true, data: { alert } });
   } catch (error) {
     console.error('Get alert error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while fetching alert' }
-    });
+    res.status(500).json({ success: false, error: { message: 'Server error while fetching alert' } });
   }
 });
 
 // @desc    Create new alert
 // @route   POST /api/alerts
 // @access  Private
-router.post('/', protect, [
-  body('alertType')
-    .isIn(['fall', 'inactivity', 'medical', 'security', 'wellness', 'system'])
-    .withMessage('Invalid alert type'),
-  body('severity')
-    .isIn(['low', 'medium', 'high', 'critical'])
-    .withMessage('Invalid severity level'),
-  body('title')
-    .trim()
-    .isLength({ min: 1, max: 100 })
-    .withMessage('Title must be between 1 and 100 characters'),
-  body('description')
-    .trim()
-    .isLength({ min: 1, max: 500 })
-    .withMessage('Description must be between 1 and 500 characters'),
-  body('location')
-    .optional()
-    .isString()
-    .withMessage('Location must be a string'),
-  body('coordinates.latitude')
-    .optional()
-    .isFloat({ min: -90, max: 90 })
-    .withMessage('Latitude must be between -90 and 90'),
-  body('coordinates.longitude')
-    .optional()
-    .isFloat({ min: -180, max: 180 })
-    .withMessage('Longitude must be between -180 and 180')
-], async (req, res) => {
-  try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: 'Validation failed',
-          details: errors.array()
+router.post(
+  '/',
+  protect,
+  [
+    body('alertType')
+      .isIn(['fall', 'inactivity', 'medical', 'security', 'wellness', 'system'])
+      .withMessage('Invalid alert type'),
+    body('severity').isIn(['low', 'medium', 'high', 'critical']).withMessage('Invalid severity level'),
+    body('title').trim().isLength({ min: 1, max: 100 }).withMessage('Title must be between 1 and 100 characters'),
+    body('description')
+      .trim()
+      .isLength({ min: 1, max: 500 })
+      .withMessage('Description must be between 1 and 500 characters'),
+    body('location').optional().isString().withMessage('Location must be a string'),
+    body('coordinates.latitude').optional().isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
+    body('coordinates.longitude').optional().isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180')
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'Validation failed', details: errors.array() }
+        });
+      }
+
+      const alertData = { ...req.body, userId: req.user._id };
+      const alert = await Alert.create(alertData);
+
+      // Get available contacts for this alert type
+      const contacts = await Contact.getAvailableContactsForAlert(req.user._id, alert.alertType, new Date());
+
+      const recipients = getAlertRecipientsFromEnv();
+      // Add notifications for each contact and notify immediately (email + SMS + Push)
+      for (const contact of contacts) {
+        if (contact.notificationPreferences.email.enabled) {
+          await alert.addNotification(contact._id, 'email');
+          if (recipients.length) {
+            try {
+              const payload = buildAlertEmail(alert, req.user);
+              const result = await sendEmail({ to: recipients, ...payload });
+              await alert.updateNotificationStatus(contact._id, 'sent', `Email sent: ${result.messageId || 'ok'}`);
+            } catch (err) {
+              console.error('Email send failed:', err?.message);
+              await alert.updateNotificationStatus(contact._id, 'failed', err?.message || 'Email failed');
+            }
+          } else {
+            console.warn('No ALERT_EMAIL_TO configured; skipping email send.');
+            await alert.updateNotificationStatus(contact._id, 'failed', 'No ALERT_EMAIL_TO configured');
+          }
         }
+
+        if (contact.notificationPreferences.sms.enabled) {
+          await alert.addNotification(contact._id, 'sms');
+          smsService
+            .sendAlertSMS(contact.phone, alert)
+            .then(() => alert.updateNotificationStatus(contact._id, 'sent', 'SMS sent'))
+            .catch((err) => alert.updateNotificationStatus(contact._id, 'failed', err?.message || 'SMS failed'));
+        }
+
+        if (contact.notificationPreferences.push.enabled) {
+          await alert.addNotification(contact._id, 'push');
+          const push = buildAlertPush(alert);
+          sendPush(push).catch((e) => console.error('Push send failed:', e?.message));
+        }
+      }
+
+      await alert.populate('monitoringSessionId', 'sessionId deviceInfo');
+
+      res.status(201).json({
+        success: true,
+        data: { alert },
+        message: 'Alert created successfully'
       });
+    } catch (error) {
+      console.error('Create alert error:', error);
+      res.status(500).json({ success: false, error: { message: 'Server error while creating alert' } });
     }
-
-    const alertData = {
-      ...req.body,
-      userId: req.user._id
-    };
-
-    const alert = await Alert.create(alertData);
-
-    // Get available contacts for this alert type
-    const contacts = await Contact.getAvailableContactsForAlert(
-      req.user._id,
-      alert.alertType,
-      new Date()
-    );
-
-    // Add notifications for each contact and notify immediately (email + SMS + Push)
-    for (const contact of contacts) {
-      if (contact.notificationPreferences.email.enabled) {
-        await alert.addNotification(contact._id, 'email');
-        // fire-and-forget email to requested recipient
-        sendEmail({
-          to: 'khushisarojj@gmail.com',
-          ...buildAlertEmail(alert, req.user)
-        }).catch(() => {});
-      }
-      if (contact.notificationPreferences.sms.enabled) {
-        await alert.addNotification(contact._id, 'sms');
-        // Fire-and-forget SMS sending, do not block response
-        smsService
-          .sendAlertSMS(contact.phone, alert)
-          .then(() => alert.updateNotificationStatus(contact._id, 'sent', 'SMS sent'))
-          .catch((err) => alert.updateNotificationStatus(contact._id, 'failed', err?.message || 'SMS failed'));
-      }
-      if (contact.notificationPreferences.push.enabled) {
-        await alert.addNotification(contact._id, 'push');
-        const push = buildAlertPush(alert);
-        sendPush(push).catch(() => {});
-      }
-    }
-
-    // Populate the alert with monitoring session info
-    await alert.populate('monitoringSessionId', 'sessionId deviceInfo');
-
-    res.status(201).json({
-      success: true,
-      data: { alert },
-      message: 'Alert created successfully'
-    });
-
-  } catch (error) {
-    console.error('Create alert error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while creating alert' }
-    });
   }
-});
+);
 
 // @desc    Acknowledge alert
 // @route   PUT /api/alerts/:id/acknowledge
 // @access  Private
 router.put('/:id/acknowledge', protect, async (req, res) => {
   try {
-    const alert = await Alert.findOne({
-      _id: req.params.id,
-      userId: req.user._id
-    });
-
-    if (!alert) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Alert not found' }
-      });
-    }
-
+    const alert = await Alert.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!alert) return res.status(404).json({ success: false, error: { message: 'Alert not found' } });
     if (alert.status === 'resolved') {
-      return res.status(400).json({
-        success: false,
-        error: { message: 'Cannot acknowledge resolved alert' }
-      });
+      return res.status(400).json({ success: false, error: { message: 'Cannot acknowledge resolved alert' } });
     }
-
     await alert.acknowledge(req.user._id);
-
-    res.json({
-      success: true,
-      data: { alert },
-      message: 'Alert acknowledged successfully'
-    });
-
+    res.json({ success: true, data: { alert }, message: 'Alert acknowledged successfully' });
   } catch (error) {
     console.error('Acknowledge alert error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while acknowledging alert' }
-    });
+    res.status(500).json({ success: false, error: { message: 'Server error while acknowledging alert' } });
   }
 });
 
@@ -258,212 +204,108 @@ router.put('/:id/acknowledge', protect, async (req, res) => {
 // @access  Private
 router.put('/:id/resolve', protect, async (req, res) => {
   try {
-    const alert = await Alert.findOne({
-      _id: req.params.id,
-      userId: req.user._id
-    });
-
-    if (!alert) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Alert not found' }
-      });
-    }
-
+    const alert = await Alert.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!alert) return res.status(404).json({ success: false, error: { message: 'Alert not found' } });
     if (alert.status === 'resolved') {
-      return res.status(400).json({
-        success: false,
-        error: { message: 'Alert is already resolved' }
-      });
+      return res.status(400).json({ success: false, error: { message: 'Alert is already resolved' } });
     }
-
     await alert.resolve(req.user._id);
-
-    res.json({
-      success: true,
-      data: { alert },
-      message: 'Alert resolved successfully'
-    });
-
+    res.json({ success: true, data: { alert }, message: 'Alert resolved successfully' });
   } catch (error) {
     console.error('Resolve alert error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while resolving alert' }
-    });
+    res.status(500).json({ success: false, error: { message: 'Server error while resolving alert' } });
   }
 });
 
 // @desc    Escalate alert
 // @route   PUT /api/alerts/:id/escalate
 // @access  Private
-router.put('/:id/escalate', protect, [
-  body('contactType')
-    .isIn(['email', 'sms', 'push'])
-    .withMessage('Invalid contact type'),
-  body('contactId')
-    .notEmpty()
-    .withMessage('Contact ID is required')
-], async (req, res) => {
-  try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: 'Validation failed',
-          details: errors.array()
-        }
-      });
+router.put(
+  '/:id/escalate',
+  protect,
+  [body('contactType').isIn(['email', 'sms', 'push']).withMessage('Invalid contact type'), body('contactId').notEmpty().withMessage('Contact ID is required')],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, error: { message: 'Validation failed', details: errors.array() } });
+      }
+
+      const { contactType, contactId } = req.body;
+
+      const alert = await Alert.findOne({ _id: req.params.id, userId: req.user._id });
+      if (!alert) return res.status(404).json({ success: false, error: { message: 'Alert not found' } });
+      if (alert.status === 'resolved') {
+        return res.status(400).json({ success: false, error: { message: 'Cannot escalate resolved alert' } });
+      }
+
+      await alert.escalate(contactType, contactId);
+      res.json({ success: true, data: { alert }, message: 'Alert escalated successfully' });
+    } catch (error) {
+      console.error('Escalate alert error:', error);
+      res.status(500).json({ success: false, error: { message: 'Server error while escalating alert' } });
     }
-
-    const { contactType, contactId } = req.body;
-
-    const alert = await Alert.findOne({
-      _id: req.params.id,
-      userId: req.user._id
-    });
-
-    if (!alert) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Alert not found' }
-      });
-    }
-
-    if (alert.status === 'resolved') {
-      return res.status(400).json({
-        success: false,
-        error: { message: 'Cannot escalate resolved alert' }
-      });
-    }
-
-    await alert.escalate(contactType, contactId);
-
-    res.json({
-      success: true,
-      data: { alert },
-      message: 'Alert escalated successfully'
-    });
-
-  } catch (error) {
-    console.error('Escalate alert error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while escalating alert' }
-    });
   }
-});
+);
 
 // @desc    Update alert
 // @route   PUT /api/alerts/:id
 // @access  Private
-router.put('/:id', protect, [
-  body('title')
-    .optional()
-    .trim()
-    .isLength({ min: 1, max: 100 })
-    .withMessage('Title must be between 1 and 100 characters'),
-  body('description')
-    .optional()
-    .trim()
-    .isLength({ min: 1, max: 500 })
-    .withMessage('Description must be between 1 and 500 characters'),
-  body('tags')
-    .optional()
-    .isArray()
-    .withMessage('Tags must be an array'),
-  body('autoResolve')
-    .optional()
-    .isBoolean()
-    .withMessage('autoResolve must be a boolean'),
-  body('autoResolveAfter')
-    .optional()
-    .isInt({ min: 1, max: 1440 })
-    .withMessage('Auto resolve time must be between 1 and 1440 minutes')
-], async (req, res) => {
-  try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: 'Validation failed',
-          details: errors.array()
-        }
-      });
+router.put(
+  '/:id',
+  protect,
+  [
+    body('title').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Title must be between 1 and 100 characters'),
+    body('description').optional().trim().isLength({ min: 1, max: 500 }).withMessage('Description must be between 1 and 500 characters'),
+    body('tags').optional().isArray().withMessage('Tags must be an array'),
+    body('autoResolve').optional().isBoolean().withMessage('autoResolve must be a boolean'),
+    body('autoResolveAfter').optional().isInt({ min: 1, max: 1440 }).withMessage('Auto resolve time must be between 1 and 1440 minutes')
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, error: { message: 'Validation failed', details: errors.array() } });
+      }
+
+      const { title, description, tags, autoResolve, autoResolveAfter } = req.body;
+      const updateFields = {};
+
+      if (title) updateFields.title = title;
+      if (description) updateFields.description = description;
+      if (tags) updateFields.tags = tags;
+      if (autoResolve !== undefined) updateFields.autoResolve = autoResolve;
+      if (autoResolveAfter) updateFields.autoResolveAfter = autoResolveAfter;
+
+      const alert = await Alert.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user._id },
+        updateFields,
+        { new: true, runValidators: true }
+      ).populate('monitoringSessionId', 'sessionId deviceInfo');
+
+      if (!alert) {
+        return res.status(404).json({ success: false, error: { message: 'Alert not found' } });
+      }
+
+      res.json({ success: true, data: { alert }, message: 'Alert updated successfully' });
+    } catch (error) {
+      console.error('Update alert error:', error);
+      res.status(500).json({ success: false, error: { message: 'Server error while updating alert' } });
     }
-
-    const { title, description, tags, autoResolve, autoResolveAfter } = req.body;
-    const updateFields = {};
-
-    if (title) updateFields.title = title;
-    if (description) updateFields.description = description;
-    if (tags) updateFields.tags = tags;
-    if (autoResolve !== undefined) updateFields.autoResolve = autoResolve;
-    if (autoResolveAfter) updateFields.autoResolveAfter = autoResolveAfter;
-
-    const alert = await Alert.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        userId: req.user._id
-      },
-      updateFields,
-      { new: true, runValidators: true }
-    ).populate('monitoringSessionId', 'sessionId deviceInfo');
-
-    if (!alert) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Alert not found' }
-      });
-    }
-
-    res.json({
-      success: true,
-      data: { alert },
-      message: 'Alert updated successfully'
-    });
-
-  } catch (error) {
-    console.error('Update alert error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while updating alert' }
-    });
   }
-});
+);
 
 // @desc    Delete alert
 // @route   DELETE /api/alerts/:id
 // @access  Private
 router.delete('/:id', protect, async (req, res) => {
   try {
-    const alert = await Alert.findOneAndDelete({
-      _id: req.params.id,
-      userId: req.user._id
-    });
-
-    if (!alert) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Alert not found' }
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Alert deleted successfully'
-    });
-
+    const alert = await Alert.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
+    if (!alert) return res.status(404).json({ success: false, error: { message: 'Alert not found' } });
+    res.json({ success: true, message: 'Alert deleted successfully' });
   } catch (error) {
     console.error('Delete alert error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while deleting alert' }
-    });
+    res.status(500).json({ success: false, error: { message: 'Server error while deleting alert' } });
   }
 });
 
@@ -534,9 +376,7 @@ router.get('/stats/overview', protect, async (req, res) => {
           }
         }
       },
-      {
-        $sort: { count: -1 }
-      }
+      { $sort: { count: -1 } }
     ]);
 
     const severityBreakdown = await Alert.aggregate([
@@ -552,9 +392,7 @@ router.get('/stats/overview', protect, async (req, res) => {
           count: { $sum: 1 }
         }
       },
-      {
-        $sort: { count: -1 }
-      }
+      { $sort: { count: -1 } }
     ]);
 
     res.json({
@@ -577,13 +415,9 @@ router.get('/stats/overview', protect, async (req, res) => {
         }
       }
     });
-
   } catch (error) {
     console.error('Get alert stats error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while fetching alert statistics' }
-    });
+    res.status(500).json({ success: false, error: { message: 'Server error while fetching alert statistics' } });
   }
 });
 
@@ -593,77 +427,46 @@ router.get('/stats/overview', protect, async (req, res) => {
 router.get('/overdue', protect, async (req, res) => {
   try {
     const overdueAlerts = await Alert.getOverdueAlerts();
-
-    res.json({
-      success: true,
-      data: { overdueAlerts }
-    });
-
+    res.json({ success: true, data: { overdueAlerts } });
   } catch (error) {
     console.error('Get overdue alerts error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while fetching overdue alerts' }
-    });
+    res.status(500).json({ success: false, error: { message: 'Server error while fetching overdue alerts' } });
   }
 });
 
 // @desc    Update notification status
 // @route   PUT /api/alerts/:id/notifications/:contactId
 // @access  Private
-router.put('/:id/notifications/:contactId', protect, [
-  body('status')
-    .isIn(['sent', 'delivered', 'failed'])
-    .withMessage('Invalid notification status'),
-  body('response')
-    .optional()
-    .isString()
-    .withMessage('Response must be a string')
-], async (req, res) => {
-  try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: 'Validation failed',
-          details: errors.array()
-        }
-      });
+router.put(
+  '/:id/notifications/:contactId',
+  protect,
+  [
+    body('status').isIn(['sent', 'delivered', 'failed']).withMessage('Invalid notification status'),
+    body('response').optional().isString().withMessage('Response must be a string')
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, error: { message: 'Validation failed', details: errors.array() } });
+      }
+
+      const { id, contactId } = req.params;
+      const { status, response } = req.body;
+
+      const alert = await Alert.findOne({ _id: id, userId: req.user._id });
+      if (!alert) {
+        return res.status(404).json({ success: false, error: { message: 'Alert not found' } });
+      }
+
+      await alert.updateNotificationStatus(contactId, status, response);
+      res.json({ success: true, data: { alert }, message: 'Notification status updated successfully' });
+    } catch (error) {
+      console.error('Update notification status error:', error);
+      res.status(500).json({ success: false, error: { message: 'Server error while updating notification status' } });
     }
-
-    const { id, contactId } = req.params;
-    const { status, response } = req.body;
-
-    const alert = await Alert.findOne({
-      _id: id,
-      userId: req.user._id
-    });
-
-    if (!alert) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Alert not found' }
-      });
-    }
-
-    await alert.updateNotificationStatus(contactId, status, response);
-
-    res.json({
-      success: true,
-      data: { alert },
-      message: 'Notification status updated successfully'
-    });
-
-  } catch (error) {
-    console.error('Update notification status error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while updating notification status' }
-    });
   }
-});
+);
 
 // @desc    Trigger SOS alert
 // @route   POST /api/alerts/sos
@@ -678,82 +481,70 @@ router.post('/sos', protect, async (req, res) => {
       severity: 'critical',
       title: 'SOS Alert Triggered',
       description: 'The user has manually triggered an SOS alert from the dashboard.',
-      location: location,
+      location
     };
 
     const alert = await Alert.create(alertData);
 
-    // Send SOS to the specified emergency number
+    // Try SOS to emergency number
     let sosResult = null;
     try {
       sosResult = await sosService.sendSOSAlert(req.user, location);
-      console.log('SOS alert sent to emergency number:', sosResult);
     } catch (sosError) {
       console.error('Failed to send SOS to emergency number:', sosError);
     }
 
-    // Send emergency call if requested
+    // Optional emergency call
     let emergencyCallResult = null;
     if (includeEmergencyCall) {
       try {
         emergencyCallResult = await sosService.initiateEmergencyCall(req.user, location);
-        console.log('Emergency call initiated:', emergencyCallResult);
       } catch (callError) {
         console.error('Failed to initiate emergency call:', callError);
       }
     }
 
-    // Get all contacts and send SOS to them
-    const contacts = await Contact.find({
-      userId: req.user._id,
-      isActive: true,
-    });
+    // Send to all active contacts
+    const contacts = await Contact.find({ userId: req.user._id, isActive: true });
 
-    let contactResults = [];
-    if (contacts.length > 0) {
-      try {
-        contactResults = await sosService.sendSOSToContacts(req.user, contacts, location);
-        console.log('SOS sent to contacts:', contactResults);
-      } catch (contactError) {
-        console.error('Failed to send SOS to contacts:', contactError);
-      }
-    }
-
-    // Update alert with notification records and send email/push
+    const recipients = getAlertRecipientsFromEnv();
     for (const contact of contacts) {
       if (contact.notificationPreferences.email.enabled) {
         await alert.addNotification(contact._id, 'email');
-        sendEmail({
-          to: 'khushisarojj@gmail.com',
-          ...buildAlertEmail(alert, req.user)
-        }).catch(() => {});
+        if (recipients.length) {
+          try {
+            const payload = buildAlertEmail(alert, req.user);
+            const result = await sendEmail({ to: recipients, ...payload });
+            await alert.updateNotificationStatus(contact._id, 'sent', `Email sent: ${result.messageId || 'ok'}`);
+          } catch (err) {
+            console.error('Email send failed (SOS):', err?.message);
+            await alert.updateNotificationStatus(contact._id, 'failed', err?.message || 'Email failed');
+          }
+        } else {
+          await alert.updateNotificationStatus(contact._id, 'failed', 'No ALERT_EMAIL_TO configured');
+        }
       }
+
       if (contact.notificationPreferences.sms.enabled) {
         await alert.addNotification(contact._id, 'sms');
+        // If you want to actually send SMS here, hook into smsService like in create-alert
       }
+
       if (contact.notificationPreferences.push.enabled) {
         await alert.addNotification(contact._id, 'push');
         const push = buildSosPush(location);
-        sendPush(push).catch(() => {});
+        sendPush(push).catch((e) => console.error('Push send failed (SOS):', e?.message));
       }
     }
 
     res.status(201).json({
       success: true,
-      data: { 
-        alert,
-        sosResult,
-        emergencyCallResult,
-        contactResults
-      },
-      message: 'SOS alert triggered successfully. Emergency services and contacts are being notified.',
+      data: { alert, sosResult, emergencyCallResult, contactResults: [] },
+      message: 'SOS alert triggered successfully. Emergency services and contacts are being notified.'
     });
   } catch (error) {
     console.error('SOS alert error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while triggering SOS alert' },
-    });
+    res.status(500).json({ success: false, error: { message: 'Server error while triggering SOS alert' } });
   }
 });
 
@@ -770,51 +561,47 @@ router.post('/emergency-call', protect, async (req, res) => {
       severity: 'critical',
       title: 'Emergency Call Requested',
       description: 'The user has requested an emergency call to ambulance services.',
-      location: location,
+      location
     };
 
     const alert = await Alert.create(alertData);
 
-    // Initiate emergency call to ambulance
     let emergencyCallResult = null;
     try {
       emergencyCallResult = await sosService.initiateEmergencyCall(req.user, location);
-      console.log('Emergency call initiated:', emergencyCallResult);
     } catch (callError) {
       console.error('Failed to initiate emergency call:', callError);
     }
 
-    // Also send SOS to contacts
-    const contacts = await Contact.find({
-      userId: req.user._id,
-      isActive: true,
-    });
+    // Also send SOS to contacts (email recipients from env if enabled)
+    const contacts = await Contact.find({ userId: req.user._id, isActive: true });
+    const recipients = getAlertRecipientsFromEnv();
 
-    let contactResults = [];
-    if (contacts.length > 0) {
-      try {
-        contactResults = await sosService.sendSOSToContacts(req.user, contacts, location);
-        console.log('SOS sent to contacts:', contactResults);
-      } catch (contactError) {
-        console.error('Failed to send SOS to contacts:', contactError);
+    for (const contact of contacts) {
+      if (contact.notificationPreferences.email.enabled) {
+        await alert.addNotification(contact._id, 'email');
+        if (recipients.length) {
+          try {
+            const payload = buildAlertEmail(alert, req.user);
+            const result = await sendEmail({ to: recipients, ...payload });
+            await alert.updateNotificationStatus(contact._id, 'sent', `Email sent: ${result.messageId || 'ok'}`);
+          } catch (err) {
+            await alert.updateNotificationStatus(contact._id, 'failed', err?.message || 'Email failed');
+          }
+        } else {
+          await alert.updateNotificationStatus(contact._id, 'failed', 'No ALERT_EMAIL_TO configured');
+        }
       }
     }
 
     res.status(201).json({
       success: true,
-      data: { 
-        alert,
-        emergencyCallResult,
-        contactResults
-      },
-      message: 'Emergency call initiated successfully. Ambulance services and contacts are being notified.',
+      data: { alert, emergencyCallResult, contactResults: [] },
+      message: 'Emergency call initiated successfully. Ambulance services and contacts are being notified.'
     });
   } catch (error) {
     console.error('Emergency call error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while initiating emergency call' },
-    });
+    res.status(500).json({ success: false, error: { message: 'Server error while initiating emergency call' } });
   }
 });
 
@@ -826,7 +613,6 @@ router.get('/admin/all', protect, authorize('admin'), async (req, res) => {
     const { page = 1, limit = 50, status, severity, alertType } = req.query;
 
     const query = {};
-    
     if (status) query.status = status;
     if (severity) query.severity = severity;
     if (alertType) query.alertType = alertType;
@@ -858,13 +644,9 @@ router.get('/admin/all', protect, authorize('admin'), async (req, res) => {
         }
       }
     });
-
   } catch (error) {
     console.error('Get all alerts error:', error);
-    res.status(500).json({
-      success: false,
-      error: { message: 'Server error while fetching all alerts' }
-    });
+    res.status(500).json({ success: false, error: { message: 'Server error while fetching all alerts' } });
   }
 });
 

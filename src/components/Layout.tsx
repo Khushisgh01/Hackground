@@ -28,6 +28,8 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { sendSosEmail } from "@/lib/email";
+import { AlertAPI } from "@/lib/api";
 
 
 interface LayoutProps {
@@ -50,35 +52,16 @@ export const Layout = ({ children, activeTab, onTabChange }: LayoutProps) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleSOSTrigger = () => {
-    // NOTE: In a real application, you would make a POST request to your backend
-    // For now, we just show a success toast.
-    console.log("SOS TRIGGERED");
-    toast.success("SOS Alert Triggered!", {
-      description: "Emergency contacts have been notified.",
-    });
-    // Example API call (uncomment when backend is connected)
-    /*
-    fetch('/api/alerts/sos', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer YOUR_AUTH_TOKEN`
-      },
-      body: JSON.stringify({ location: 'Dashboard' })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        toast.success("SOS Alert Triggered!", {
-          description: "Emergency contacts have been notified.",
-        });
-      } else {
-        toast.error("Failed to trigger SOS alert.");
-      }
-    })
-    .catch(() => toast.error("Failed to trigger SOS alert."));
-    */
+  const handleSOSTrigger = async () => {
+    try {
+      await AlertAPI.triggerSOS({ includeEmergencyCall: false });
+    } catch {}
+    try {
+      await sendSosEmail({ subject: 'SOS Alert Triggered', message: 'SOS triggered from sidebar button.' });
+    } catch (e) {
+      console.error('EmailJS SOS send failed:', (e as Error)?.message);
+    }
+    toast.success("SOS Alert Triggered!", { description: "Emergency contacts have been notified." });
   };
 
 
